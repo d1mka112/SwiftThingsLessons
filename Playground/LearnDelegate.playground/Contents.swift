@@ -8,14 +8,14 @@ protocol BakeryDelegate {
 }
 
 protocol BakeryRequestDelegate {
-    func makeCookie()
+    func makeCookie(num: Int)
 }
 
 class Bakery : BakeryRequestDelegate {
     var delegate: BakeryDelegate?
     
-    func makeCookie() {
-        let cookie = Cookie(size: 5, hasChocolateChips: true)
+    func makeCookie(num: Int) {
+        let cookie = Cookie(size: num, hasChocolateChips: true)
         print(cookie.size)
         delegate?.cookieWasBaked(cookie)
     }
@@ -24,11 +24,12 @@ class Bakery : BakeryRequestDelegate {
 
 class Deliver: BakeryDelegate {
     var delegate: BakeryRequestDelegate?
-    
-    func getCookie() {
-        delegate?.makeCookie()
+    var countCookie: Int = 0
+    func getCookie(_ num: Int) {
+        delegate?.makeCookie(num: num)
     }
     func cookieWasBaked(_ cookie: Cookie) {
+        countCookie = countCookie + cookie.size
         print(cookie.hasChocolateChips)
     }
 }
@@ -39,5 +40,10 @@ var bakery = Bakery()
 deliver.delegate = bakery
 bakery.delegate = deliver
 
-deliver.getCookie()
+deliver.getCookie(5)
+deliver.getCookie(10)
+print(deliver.countCookie)
+deliver.getCookie(15)
+print(deliver.countCookie)
+
 

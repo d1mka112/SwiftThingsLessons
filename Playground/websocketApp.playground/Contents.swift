@@ -56,8 +56,6 @@ let myWebSocket = MyWebSocket()
 myWebSocket.connectToTheChat()
 myWebSocket.readMessage()
 myWebSocket.joinIntoChannel("buster")
-
-for i in 1...1000 {
-    myWebSocket.readMessage()
-}
-
+myWebSocket.readMessage()
+myWebSocket.readMessage()
+myWebSocket.readMessage()

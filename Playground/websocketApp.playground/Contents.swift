@@ -1,103 +1,138 @@
 import Foundation
-//SSH connect
+/*TODO:
+ - add onServerMessage()
+ - add onChatMessage()
+ - add onJoinChannel()
+*/
 
-//PASS oauth:vvdaqv83axufdgrp642d6z2ymg4apy
-//NICK d1mka112
-
-//if PING :tmi.twitch.tv
-//send PONG :tmi.twitch.tv
-
-protocol MyWebSocketDelegate {
-    func onMessage(message: String)
+protocol TwitchChatConnectionDelegate {
+    func onChatMessage(_ message:String)
+    func onJoinChannel()
 }
 
+//this structure will set all the values of its own properties from the raw data itself
 struct TwitchChatMessage {
-    let nickname: String
-    let message: String
+    var nickname: String
+    var message: String
+    var rawMessage: String
     
-    init(nickname:String, message: String) {
-        self.nickname = nickname
-        self.message = message
+    init(rawMessage: String) {
+        self.nickname = ""
+        self.message = ""
+        if let index = rawMessage.firstIndex(of: "!") {
+            self.nickname = String(rawMessage.prefix(upTo: index).dropFirst())
+        }
+        if let index1 = rawMessage.firstIndex(of: "#") {
+            if let index2 = rawMessage.suffix(from: index1).firstIndex(of: ":") {
+                self.message = String(rawMessage.suffix(from: index2).dropFirst())
+            }
+        }
+        self.rawMessage = rawMessage
     }
 }
 
-class MyWebSocket
-{
-    let nickname: String = "d1mka112"
-    let token: String = "oauth:vvdaqv83axufdgrp642d6z2ymg4apy"
+class TwitchChatConnection {
     
-    var delegate: MyWebSocketDelegate?
+    var nickname: String = "d1mka112"
+    var token: String = "oauth:vvdaqv83axufdgrp642d6z2ymg4apy"
     
-    let webSocketTask = URLSession(configuration: .default).webSocketTask(with: URL(string: "wss://irc-ws.chat.twitch.tv:443")!)
-    func connectToTheChat() {
-        webSocketTask.resume()
-        self.sendMessage(message: "PASS \(token)")
-        self.sendMessage(message: "NICK \(nickname.lowercased())")
-        print("message sended")
-    }
-    func joinToTheChannel(_ channel: String) {
-        self.sendMessage(message: "JOIN #\(channel)")
-    }
-    func sendMessage(message: String) {
+    var channel: String = ""
+    
+    var willRead: Bool = false
+    
+    var delegate: TwitchChatConnectionDelegate?
+    
+    var webSocketTask = URLSession(configuration: .default).webSocketTask(with: URL(string: "wss://irc-ws.chat.twitch.tv:443")!)
+    
+    func sendMessage(_ message: String) {
         let urlMessage = URLSessionWebSocketTask.Message.string(message)
-        
         webSocketTask.send(urlMessage) { error in
             if error != nil {
                 print("WebSocket Couldn't send message \(error!)")
             }
         }
     }
-    func readMessage() {
-        for i in 1...100 {
-            webSocketTask.receive { (result) in
-                switch result {
-                    case .success(let urlMessage):
-                        switch urlMessage {
-                            case .string(let message):
-                                self.delegate?.onMessage(message: message)
-                            default:
-                                print("Error of reading message")
-                                return
-                        }
-                    case .failure(let error):
-                        print(error)
-                    
-                }
-            }
-        }
+    
+    func connectToTheServer() {
+        webSocketTask.resume()
+        self.sendMessage("PASS \(token)")
+        self.sendMessage("NICK \(nickname.lowercased())")
     }
-}
-
-
-class TwitchReader: MyWebSocketDelegate {
-    func onMessage(message: String) {
-        let twitchChatMessage = self.getTwitchChatMessage(from: message)
-        print("\(twitchChatMessage.nickname) : \(twitchChatMessage.message)")
+    func connectToTheChatChannel(into channel: String) {
+        self.sendMessage("JOIN #\(channel)")
     }
     
-    func getTwitchChatMessage(from message: String) -> TwitchChatMessage{
-        var name = ""
-        var messageString = ""
-        if let index = message.firstIndex(of: "!") {
-            name = String(message.prefix(upTo: index).dropFirst())
+    func sendMessageToTheChat(_ message: String) {
+        if channel != "" {
+            self.sendMessage("PRIVMSG #\(channel) :\(message)")
         }
-        if let index1 = message.firstIndex(of: "#") {
-            if let index2 = message.suffix(from: index1).firstIndex(of: ":") {
-                messageString = String(message.suffix(from: index2).dropFirst())
+        else {
+            print("You are not join to the channel!")
+        }
+    }
+    
+    func onServerMessage(_ message: String) {
+        if(message.contains(":\(nickname).tmi.twitch.tv 366 \(nickname) #\(channel) :End of /NAMES list")) {
+            delegate?.onJoinChannel()
+            //is that normal?
+        }
+        delegate?.onChatMessage(message)
+    }
+    
+    func readMessage() {
+        webSocketTask.receive { (result) in
+            switch result {
+                case .success(let urlMessage):
+                    switch urlMessage {
+                        case .string(let message):
+                            //print(message)
+                            self.onServerMessage(message)
+                        default:
+                            print("Error of reading message")
+                            return
+                    }
+                case .failure(let error):
+                    print(error)
+            }
+            if(self.willRead) {
+                self.readMessage()
             }
         }
-        let twitchChatMessage = TwitchChatMessage(nickname: name, message: messageString)
-        return twitchChatMessage
     }
 }
 
-let myWebSocket = MyWebSocket()
-let myReader = TwitchReader()
-myWebSocket.delegate = myReader
+class TwitchChatReader: TwitchChatConnectionDelegate {
+    func onJoinChannel() {
+        return
+    }
+    
+    func onChatMessage(_ message: String) {
+        let msg = TwitchChatMessage(rawMessage: message)
+        
+        print("\(msg.nickname) : \(msg.message)")
+    }
+}
 
-myWebSocket.connectToTheChat()
+var twitchChat = TwitchChatConnection()
+var twitchChatReader = TwitchChatReader()
 
-myWebSocket.joinToTheChannel("jesusavgn")
-myWebSocket.readMessage()
+twitchChat.delegate = twitchChatReader
+twitchChat.willRead = true
+
+twitchChat.connectToTheServer()
+twitchChat.connectToTheChatChannel(into: "dmitry_lixxx")
+
+twitchChat.readMessage()
+
+DispatchQueue.main.asyncAfter(deadline: .now() + 30) {
+    twitchChat.willRead = false
+}
+
+
+
+
+
+
+
 
 

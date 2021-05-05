@@ -38,6 +38,8 @@ class TwitchChatConnection {
     
     var channel: String = ""
     
+    var onJoin: Bool
+    
     var delegate: TwitchChatConnectionDelegate?
     
     var webSocketTask = URLSession(configuration: .default).webSocketTask(with: URL(string: "wss://irc-ws.chat.twitch.tv:443")!)

@@ -38,7 +38,7 @@ class TwitchChatConnection {
     
     var channel: String = ""
     
-    var onJoin: Bool
+    var onJoin: Bool = false
     
     var delegate: TwitchChatConnectionDelegate?
     

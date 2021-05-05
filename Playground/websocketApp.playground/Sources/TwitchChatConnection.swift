@@ -16,8 +16,6 @@ struct TwitchChatMessage {
     var message: String
     var rawMessage: String
     
-    var onJoin: Bool
-    
     init(rawMessage: String) {
         self.nickname = ""
         self.message = ""
